@@ -1,0 +1,749 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Nonwimp 1</title>
+<style>
+	#game-board {
+		display: grid;
+		grid-template-columns: repeat(8, 75px);
+		grid-template-rows: repeat(8, 75px);
+		z-index: -1;
+		margin-top: 20px;
+    }
+	.cell {
+		width: 75px;
+		height: 75px;
+		display: flex;
+		border: 1px solid black;
+		justify-content: center;
+		align-items: center;
+		font-family: "Haas Grot Text R Web", "Helvetica Neue", Helvetica, Arial, sans-serif;
+	}
+	.blackcell {
+		background-color: black;
+	}
+	.whitecell {
+		background-color: white;
+	}
+	.piece {
+		width: 60px;
+		height: 60px;
+		border-radius: 50%;
+		position: absolute;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		color: white;
+	}
+	.selected {
+        border: 2px solid yellow;
+    }
+	.valid-cell {
+		background-color: rgb(106, 121, 184);
+		border: 1px solid rgb(106, 121, 184);
+	}
+	#col-labels {
+		display: flex;
+        position: relative;
+		margin-bottom: -10px;
+		margin-left: 20px;
+		font-family: "Haas Grot Text R Web", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+	#row-labels {
+        position: relative;
+        margin-top: 50px;
+		margin-right: 15px;
+		font-family: "Haas Grot Text R Web", "Helvetica Neue", Helvetica, Arial, sans-serif;
+	}
+	.label-cell-col {
+		display: flex;
+		margin-left: 66px;
+	}
+	.label-cell-row {
+		display: flex;
+		margin-bottom: 56px;
+	}
+	#container {
+		display: flex;
+		margin-left: 20px;
+	}
+	.king {
+		border: 1px solid yellow;
+	}
+	h1 {
+		font-family: "Haas Grot Text R Web", "Helvetica Neue", Helvetica, Arial, sans-serif;
+		margin-bottom: 25px;
+	}
+	p {
+		font-family: "Haas Grot Text R Web", "Helvetica Neue", Helvetica, Arial, sans-serif;
+		font-size: 17px;
+	}
+	#player {
+		font-family: "Haas Grot Text R Web", "Helvetica Neue", Helvetica, Arial, sans-serif;
+		margin: 20px;
+		font-size: 20px;
+	}
+
+	button {
+		background-color: rgba(51, 51, 51, 0.386);
+		border-radius: 8px;
+		border-width: 0;
+		color: #333333;
+		cursor: pointer;
+		display: inline-block;
+		font-family: "Haas Grot Text R Web", "Helvetica Neue", Helvetica, Arial, sans-serif;
+		font-size: 17px;
+		font-weight: 500;
+		line-height: 20px;
+		margin: 20px;
+		padding: 10px 12px;
+		text-align: center;
+	}
+	button:hover {
+		background-color: rgba(51, 51, 51, 0.05);
+		
+		
+	}
+	body {
+		margin-left: 20px;
+	}
+	#player-turn {
+		display: flex;
+		align-items: center;
+		margin-top: -10px;
+	}
+
+</style>
+</head>
+<body>
+	<h1>Voice Command Checkers</h1>
+	<p>How to Play: Use your voice to tell the board which piece to 
+		move when it is your turn. <br>
+		(To double jump, make sure to say the destination of the final 
+		square you will land on)<br><br>
+		&nbsp;&nbsp;&nbsp;&nbsp;Use this format: Piece (#) to (Destination)
+		&nbsp;&nbsp;&nbsp;&nbsp;(Example: Piece 10 to D3)
+	</p>
+	<hr>
+	<!-- <div id="output"></div> -->
+	<div id=player-turn>
+		<div id="player"></div>
+		<button id="startButton">Take Turn</button>
+	</div>
+	<button id="restartButton">Restart</button>
+	<div id="col-labels"></div>
+	<div id="container">
+		<div id="row-labels"></div>
+		<div id="game-board"></div>
+	</div>
+<script>
+/*
+**************************************************
+* Checker Piece class
+**************************************************
+*/	
+class Piece {
+	constructor(color, number, isKing = false) {
+		this.color = color;
+		this.number = number;
+		this.isKing = isKing;
+		this.element = document.createElement("div");
+		this.element.classList.add("piece");
+		this.element.style.backgroundColor = color;
+
+		const numberElement = document.createElement("span");
+        numberElement.textContent = number;
+        this.element.appendChild(numberElement);
+	}
+	
+	makeKing() {
+		this.isKing = true;
+		this.element.classList.add("king");
+	}
+
+	selectedPiece() {
+		document.querySelectorAll('.piece').forEach(piece => {
+            piece.classList.remove('selected');
+
+        });
+
+		this.element.classList.add("selected");
+      }
+}	
+	
+/*
+**************************************************
+* Cell class
+**************************************************
+*/	
+class Cell {
+	constructor(color) {
+		this.color = "white";
+		this.element = document.createElement("div");
+		this.element.classList.add("cell");
+	}
+	
+	appendChild(childElement) {
+		this.element.appendChild(childElement);
+	}
+}
+
+/*
+**************************************************
+* BlackCell class
+**************************************************
+*/	
+class BlackCell extends Cell {
+	constructor(row, col) {
+		super();
+		this.color = "black";
+		this.row = row;
+		this.col = col;
+		this.piece = null;
+		this.element.classList.add("blackcell");
+
+		// Create elements to display row and col
+		const rowElement = document.createElement("div");
+		const colElement = document.createElement("div");
+
+		// Append child elements to the cell
+		this.element.appendChild(rowElement);
+		this.element.appendChild(colElement);
+	}
+
+	appendChild(childElement) {
+		this.piece = childElement;
+		this.element.appendChild(childElement.element);
+	}
+
+	removeChild() {
+		this.piece.element.remove();
+		this.piece = null;
+	}
+}
+	
+/*
+**************************************************
+* Checker Board class
+**************************************************
+*/	
+class Board {
+	constructor() {
+		this.board = this.makeBoard();
+		this.element = document.getElementById("game-board");
+		this.redpieces = [];
+		this.greenpieces = [];
+		this.numRedPieces = 12;
+		this.numGreenPieces = 12;
+		this.placePieces();
+		this.rowLabelsElement = document.getElementById("row-labels");
+        this.colLabelsElement = document.getElementById("col-labels");
+		this.render();
+	}
+	
+	makeBoard() {
+		const board = [];
+        for (let i = 0; i < 8; i++) {
+            const row = [];
+            for (let j = 0; j < 8; j++) {
+                if ((i % 2 === 0 && j % 2 === 0) || (i % 2 !== 0 && j % 2 !== 0)) {
+                    row.push(new BlackCell(i, j));
+                } else {
+                    row.push(new Cell("white"));
+                }
+            }
+            board.push(row);
+        }
+        return board;
+	}
+	
+	placePieces() {
+		for (let i = 0; i < 12; i++) {
+			this.redpieces.push(new Piece("Red", i+1));
+			this.greenpieces.push(new Piece("Green", i+1));
+		}
+		for (let i = 0; i < this.redpieces.length; i++) {
+			for (let j = 0; j < 4; j++) {
+				const row = Math.floor(i / 4);
+				const col = (i % 4) * 2 + (row % 2);
+
+				// Add red pieces to the board
+				const redCell = this.board[row][col];
+            	redCell.appendChild(this.redpieces[i]);
+            	this.redpieces[i].row = row;
+            	this.redpieces[i].col = col;
+
+				// Add green pieces to the board
+				const greenrow = 7 - row;
+				const greencol = (i % 4) * 2 + (greenrow % 2);
+				const greenCell = this.board[greenrow][greencol];
+				greenCell.appendChild(this.greenpieces[i]);
+				this.greenpieces[i].row = greenrow;
+				this.greenpieces[i].col = greencol;
+			}
+        }
+	}
+
+	getPiece(num, color) {
+		if (color === "Red") {
+			for (let i = 0; i < this.redpieces.length; i++) {
+				if (this.redpieces[i].number === num) {
+					return this.redpieces[i];
+				}
+        	}
+		} else if (color == "Green") {
+			for (let i = 0; i < this.greenpieces.length; i++) {
+				if (this.greenpieces[i].number === num) {
+					return this.greenpieces[i];
+				}
+        	}
+		}
+	}
+
+	isValidCell(row, col) {
+    	return row >= 0 && row < this.board.length && col >= 0 &&
+		col < this.board[0].length;
+  	}
+
+	getValidMoves(piece) {
+		const validMoves = [];
+		const validJumps = [];
+		const jumpedPieces = [];
+	
+		if (piece.color === "Red" || piece.isKing) {
+			this.pushValidMove(validMoves, piece.row + 1, piece.col - 1);
+			this.pushValidMove(validMoves, piece.row + 1, piece.col + 1);
+			
+			this.handleJump(piece.row, piece.col, validJumps, jumpedPieces, piece);
+		}
+		if (piece.color === "Green" || piece.isKing) {
+			this.pushValidMove(validMoves, piece.row - 1, piece.col - 1);
+			this.pushValidMove(validMoves, piece.row - 1, piece.col + 1);
+
+			this.handleJump(piece.row, piece.col, validJumps, jumpedPieces, piece);
+		}
+	
+		return { validMoves, validJumps, jumpedPieces };
+	}
+
+	handleJump(row, col, validJumps, jumpedPieces, piece, jumpedToCells = []) {
+
+		// Make sure if piece is a king, it can't go back to where it came from
+		if (jumpedToCells.some(cell => cell.row === row && cell.col === col)) {
+        	return;
+    	}
+
+		const enemyColor = piece.color === "Red" ? "Green" : "Red";
+	
+		if (piece.color === "Red" || piece.isKing) {
+			if (this.checkJump(row + 2, col - 2, row + 1, col - 1, enemyColor)) {
+				this.pushJump(validJumps, jumpedPieces, row + 2, col - 2, row + 1, col - 1);
+				jumpedToCells.push({ row: row, col: col});
+				this.handleJump(row + 2, col - 2, validJumps, jumpedPieces, piece, jumpedToCells);
+			}
+			if (this.checkJump(row + 2, col + 2, row + 1, col + 1, enemyColor)) {
+				this.pushJump(validJumps, jumpedPieces, row + 2, col + 2, row + 1, col + 1);
+				jumpedToCells.push({ row: row, col: col});
+				this.handleJump(row + 2, col + 2, validJumps, jumpedPieces, piece, jumpedToCells);
+			}
+		} 
+		
+		if (piece.color === "Green" || piece.isKing) {
+			if (this.checkJump(row - 2, col - 2, row - 1, col - 1, enemyColor)) {
+				this.pushJump(validJumps, jumpedPieces, row - 2, col - 2, row - 1, col - 1);
+				jumpedToCells.push({ row: row, col: col});
+				this.handleJump(row - 2, col - 2, validJumps, jumpedPieces, piece, jumpedToCells);
+			}
+			if (this.checkJump(row - 2, col + 2, row - 1, col + 1, enemyColor)) {
+				this.pushJump(validJumps, jumpedPieces, row - 2, col + 2, row - 1, col + 1);
+				jumpedToCells.push({ row: row, col: col});
+				this.handleJump(row - 2, col + 2, validJumps, jumpedPieces, piece, jumpedToCells);
+			}
+		}
+	}
+
+	pushValidMove(validMoves, row, col) {
+		if (this.isValidCell(row, col) && this.isOpen(row, col)) {
+			const cell = this.board[row][col];
+			validMoves.push(cell);
+		}
+ 	}
+
+	checkJump(row, col, enemyRow, enemyCol, color) {
+		if (this.isValidCell(row, col) && this.isOpen(row, col)) {
+			if(this.hasEnemy(enemyRow, enemyCol, color)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	pushJump(validJumps, jumpedPieces, row, col, enemyRow, enemyCol) {
+		const cell = this.board[row][col];
+		validJumps.push(cell);
+		const enemyCell = this.board[enemyRow][enemyCol];
+		jumpedPieces.push(enemyCell);
+	}
+
+	hasEnemy(row, col, color) {
+		if (this.board[row][col].piece !== null) {
+			return this.board[row][col].piece.color == color;
+		}
+	}
+
+	isValidMove(piece, row, col) {
+		const valids = this.getValidMoves(piece);
+		const moves = valids.validMoves;
+		const jumps = valids.validJumps;
+		const enemies = valids.jumpedPieces;
+		
+		for (let i = 0; i < moves.length; i++) {
+			if(moves[i].row === row && moves[i].col == col) {
+				this.emptyCell(piece.row, piece.col);
+				return true;
+			}
+		}
+		for (let i = 0; i < jumps.length; i++) {	
+			if(jumps[i].row === row && jumps[i].col == col) {
+				this.emptyCell(piece.row, piece.col);
+				this.board[enemies[i].row][enemies[i].col].removeChild();
+				this.decreaseNumPieces(piece.color);
+				if (row - piece.row > 2 || piece.row - row > 2 || piece.col - col > 2 || col - piece.col > 2) {
+					this.board[enemies[i-1].row][enemies[i-1].col].removeChild();
+					this.decreaseNumPieces(piece.color);
+				}
+				return true;
+			}
+			
+
+		}
+		return false;
+	}
+
+	decreaseNumPieces(color) {
+		if (color === "Red") {
+			this.numGreenPieces--;
+		}
+		if (color === "Green") {
+			this.numRedPieces--;
+		}
+	}
+
+	checkKing(piece) {
+		if (piece.color === "Red") {
+			if (piece.row === 7) {
+				piece.makeKing();
+			}
+		}
+		if (piece.color === "Green") {
+			if (piece.row === 0) {
+				piece.makeKing();
+			}
+		}
+	}
+
+	emptyCell(row, col) {
+		this.board[row][col].piece = null;
+	}
+
+	isOpen(row, col) {
+		const cell = this.board[row][col];
+		return cell.piece === null;
+	}
+
+	movePiece(piece, newRow, newCol) { 
+    	this.board[newRow][newCol].appendChild(piece);
+        piece.row = newRow;
+        piece.col = newCol;
+    }
+
+	rowLettertoNum(letter) {
+		const letterMappings = {
+				'A': '0',
+				'B': 1,
+				'C': 2,
+				'D': 3,
+				'E': 4,
+				'F': 5,
+				'G': 6,
+				'H': 7
+			};
+
+			return letterMappings[letter] || null;
+	}
+	
+	render() {
+    	const boardElement = document.getElementById('game-board');
+		boardElement.innerHTML = '';
+
+		for (let i = 0; i < this.board.length; i++) {
+			for (let j = 0; j < this.board[i].length; j++) {
+				const cellElement = this.board[i][j].element;
+				boardElement.appendChild(cellElement);
+			}
+        }
+		this.renderRowLabels();
+		this.renderColLabels();
+    }
+
+	renderRowLabels() {
+        this.rowLabelsElement.innerHTML = '';
+        const rowLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+        for (let i = 0; i < 8; i++) {
+            const labelCell = document.createElement('div');
+            labelCell.classList.add('label-cell-row');
+            labelCell.textContent = rowLabels[i];
+            this.rowLabelsElement.appendChild(labelCell);
+        }
+    }
+
+    renderColLabels() {
+        this.colLabelsElement.innerHTML = '';
+
+        for (let i = 0; i < 8; i++) {
+            const labelCell = document.createElement('div');
+            labelCell.classList.add('label-cell-col');
+            labelCell.textContent = (i).toString();
+            this.colLabelsElement.appendChild(labelCell);
+        }
+    }
+
+	// clearBoard() {
+	// 	document.querySelectorAll('.blackcell').forEach(BlackCell => {
+    //         BlackCell.classList.remove('valid-cell');
+    //     });
+	// }
+}
+	
+/*
+**************************************************
+* Game class
+**************************************************
+*/
+class Game {
+	constructor() {
+		this.board = new Board;
+		this.currentPlayer = "Red";
+		this.playerDiv = document.getElementById("player");
+		this.speech = new speechHandler(this);
+		this.gameEnded = false;
+		document.getElementById("restartButton").addEventListener ("click", () => this.restart());
+		document.getElementById('restartButton').style.display = 'none';
+	}
+	
+	start() {
+		this.playerDiv.textContent = this.currentPlayer + " player's turn";
+		this.board.render();
+	}
+
+	end() {
+		alert(`Game over! ${this.currentPlayer} wins!`);
+		document.getElementById('restartButton').style.display = 'block';
+		document.getElementById('startButton').disabled = true;
+		this.gameEnded = true;
+
+	}
+
+	restart() {
+		this.board = new Board;
+		this.currentPlayer = "Red";
+		this.playerDiv = document.getElementById("player");
+		this.speech = new speechHandler(this);
+		this.isGameOver = false;
+		document.getElementById('startButton').disabled = false;
+		document.getElementById('restartButton').style.display = 'none';
+	}
+	
+	switchPlayer() {
+    	this.currentPlayer = this.currentPlayer === "Red" ? "Green" : "Red";
+		this.playerDiv.textContent = this.currentPlayer + " player's turn";
+    }
+
+	isGameOver() {
+		if (this.board.numRedPieces === 0) {
+			return true;
+		}
+		if (this.board.numGreenPieces === 0) {
+			return true;
+		}
+		return false;
+	}
+
+	makeMove(move) {
+		// Break down object into piece number and destination
+		const pieceNum = move.pieceNumber;
+		const dest = move.destination;
+		
+		// Break down destination into row, col
+		const row = dest.charAt(0);
+		// Get number from letter on board
+		var rowNum = this.board.rowLettertoNum(row);
+		// If row is 0, handle differently to ensure it gets num value
+		if (rowNum === "0") {
+			rowNum = parseInt(rowNum, 10);
+		}
+		const col = dest.charAt(1);
+		const colNum = parseInt(col, 10);
+
+		// Access piece on the board based on piece number
+		const piece = this.board.getPiece(pieceNum, this.currentPlayer);
+		//Check if move is valid and make move if so
+		if (this.board.isValidMove(piece, rowNum, colNum)) {
+			this.board.movePiece(piece, rowNum, colNum);
+			this.board.checkKing(piece);
+			// this.board.render();
+			if (this.isGameOver()) {
+				this.end();
+			}
+			this.switchPlayer();
+		} else {
+			alert("Move is invalid. Try again.")
+		}
+	}
+}
+
+/*
+**************************************************
+* Speech Handler class
+**************************************************
+*/
+class speechHandler {
+	constructor(game) {
+		this.outputDiv = document.getElementById('output');
+		this.startButton = document.getElementById('startButton');
+		this.game = game;
+		this.initialize();
+	}
+
+	initialize() {
+		// Check if the browser supports the Web Speech API
+		if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+			// Create a SpeechRecognition object
+			const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+
+			// Set recognition parameters
+			recognition.lang = 'en-US';
+			recognition.interimResults = true; // Receive interim results as the user speaks
+
+			// Event handler for when speech is recognized
+			recognition.onresult = (event) => {
+				const transcript = event.results[event.results.length - 1][0].transcript;
+				// Check if the result is final
+				if (event.results[event.results.length - 1].isFinal) {
+					console.log(transcript);
+					// this.outputDiv.textContent = transcript;
+					this.processCommand(transcript);
+        		}
+			};
+
+			// Event handler for when speech recognition starts
+			recognition.onstart = () => {
+				this.outputDiv.textContent = 'Listening...';
+			};
+
+			// Event handler for when speech recognition ends
+			recognition.onend = () => {
+				this.outputDiv.textContent = 'Turn has ended.';
+			};
+
+			// Event handler for errors
+			recognition.onerror = (event) => {
+				this.outputDiv.textContent = 'Error occurred: ' + event.error;
+			};
+
+			// Event listener for the start button
+			startButton.addEventListener('click', () => {
+				recognition.start();
+				// const transcript = prompt("move?");
+				// this.processCommand(transcript);
+			});
+		} else {
+			outputDiv.textContent = 'Speech recognition not supported in this browser.';
+		}
+	}
+
+	processCommand(command) {
+		if (command.includes('piece') || command.includes('peace')) {
+			const move = this.makeCommandObject(command);
+			this.game.makeMove(move);
+
+		} else {
+			alert("Invalid Move. Please use this format: 'Piece # to (Cell #)'");
+		}
+	}
+
+	numToDigit(spokenNumber) {
+		const numberMappings = {
+			'zero': 0,
+			'one': 1,
+			'two': 2,
+			'to': 2,
+			'too': 2,
+			'three': 3,
+			'four': 4,
+			'for': 4,
+			'five': 5,
+			'six': 6,
+			'seven': 7,
+			'eight': 8,
+			'ate': 8,
+			'nine': 9,
+			'ten': 10,
+			'eleven': 11,
+			'twelve': 12
+		};
+
+		return numberMappings[spokenNumber] || null;
+	}
+
+	makeCommandObject(command) {
+		let pieceNumber = null;
+		var stringAfterPiece = command.substring(1+'piece'.length);
+		var potentialNumber = stringAfterPiece.substring(0, stringAfterPiece.indexOf(' '));
+		
+		// Check if the potentialNumber is a valid number
+		if (!isNaN(potentialNumber)) {
+			pieceNumber = parseInt(potentialNumber, 10);
+		} else {
+			pieceNumber = this.numToDigit(potentialNumber);
+			if (pieceNumber === null) {
+				alert("Invalid piece number. Try again.");
+				return null;
+			}
+		}
+
+		// Extract the destination based on the presence of an alphanumeric pattern (e.g., A2)
+		const destinationMatch = command.match(/[A-Za-z]\d+/);
+		const destination = destinationMatch ? destinationMatch[0] : null;
+		if (destination === null) {
+			alert("Invalid destination. Try again.")
+			return null;
+		}
+
+		// Return an object with extracted details
+		return { pieceNumber, destination };
+	}
+}
+/*
+**************************************************
+* Main class
+**************************************************
+*/
+class Main {
+	constructor() {
+		this.game = new Game();
+		this.game.start();
+	}
+}
+
+//initialize game
+const main = new Main();
+
+	
+</script>
+</body>
+</html>
+
+
