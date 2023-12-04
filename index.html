@@ -86,7 +86,7 @@
 	}
 
 	button {
-		background-color: rgba(51, 51, 51, 0.386);
+		background-color: rgba(51, 51, 51, 0.26);
 		border-radius: 8px;
 		border-width: 0;
 		color: #333333;
@@ -101,7 +101,7 @@
 		text-align: center;
 	}
 	button:hover {
-		background-color: rgba(51, 51, 51, 0.05);
+		background-color: rgba(51, 51, 51, 0.089);
 		
 		
 	}
@@ -117,21 +117,21 @@
 </style>
 </head>
 <body>
-	<h1>Voice Command Checkers</h1>
+	<h1>Voice Commanded Checkers</h1>
 	<p>How to Play: Use your voice to tell the board which piece to 
 		move when it is your turn. <br>
 		(To double jump, make sure to say the destination of the final 
 		square you will land on)<br><br>
 		&nbsp;&nbsp;&nbsp;&nbsp;Use this format: Piece (#) to (Destination)
-		&nbsp;&nbsp;&nbsp;&nbsp;(Example: Piece 10 to D3)
+		&nbsp;&nbsp;&nbsp;&nbsp;(Example: Piece 10 to D4)
 	</p>
 	<hr>
 	<!-- <div id="output"></div> -->
 	<div id=player-turn>
 		<div id="player"></div>
 		<button id="startButton">Take Turn</button>
+		<button id="restartButton">Restart</button>
 	</div>
-	<button id="restartButton">Restart</button>
 	<div id="col-labels"></div>
 	<div id="container">
 		<div id="row-labels"></div>
@@ -470,7 +470,7 @@ class Board {
 				'H': 7
 			};
 
-			return letterMappings[letter] || null;
+			return letterMappings[letter.toUpperCase()] || null;
 	}
 	
 	render() {
@@ -502,7 +502,7 @@ class Board {
     renderColLabels() {
         this.colLabelsElement.innerHTML = '';
 
-        for (let i = 0; i < 8; i++) {
+        for (let i = 1; i < 9; i++) {
             const labelCell = document.createElement('div');
             labelCell.classList.add('label-cell-col');
             labelCell.textContent = (i).toString();
@@ -541,7 +541,7 @@ class Game {
 	end() {
 		alert(`Game over! ${this.currentPlayer} wins!`);
 		document.getElementById('restartButton').style.display = 'block';
-		document.getElementById('startButton').disabled = true;
+		document.getElementById('startButton').style.display = 'none';
 		this.gameEnded = true;
 
 	}
@@ -552,7 +552,7 @@ class Game {
 		this.playerDiv = document.getElementById("player");
 		this.speech = new speechHandler(this);
 		this.isGameOver = false;
-		document.getElementById('startButton').disabled = false;
+		document.getElementById('startButton').style.display = 'block';
 		document.getElementById('restartButton').style.display = 'none';
 	}
 	
@@ -585,7 +585,7 @@ class Game {
 			rowNum = parseInt(rowNum, 10);
 		}
 		const col = dest.charAt(1);
-		const colNum = parseInt(col, 10);
+		const colNum = (parseInt(col, 10)) - 1;
 
 		// Access piece on the board based on piece number
 		const piece = this.board.getPiece(pieceNum, this.currentPlayer);
@@ -594,10 +594,10 @@ class Game {
 			this.board.movePiece(piece, rowNum, colNum);
 			this.board.checkKing(piece);
 			// this.board.render();
+			this.switchPlayer();
 			if (this.isGameOver()) {
 				this.end();
 			}
-			this.switchPlayer();
 		} else {
 			alert("Move is invalid. Try again.")
 		}
@@ -632,25 +632,10 @@ class speechHandler {
 				const transcript = event.results[event.results.length - 1][0].transcript;
 				// Check if the result is final
 				if (event.results[event.results.length - 1].isFinal) {
-					console.log(transcript);
+					// console.log(transcript);
 					// this.outputDiv.textContent = transcript;
 					this.processCommand(transcript);
         		}
-			};
-
-			// Event handler for when speech recognition starts
-			recognition.onstart = () => {
-				this.outputDiv.textContent = 'Listening...';
-			};
-
-			// Event handler for when speech recognition ends
-			recognition.onend = () => {
-				this.outputDiv.textContent = 'Turn has ended.';
-			};
-
-			// Event handler for errors
-			recognition.onerror = (event) => {
-				this.outputDiv.textContent = 'Error occurred: ' + event.error;
 			};
 
 			// Event listener for the start button
@@ -660,15 +645,16 @@ class speechHandler {
 				// this.processCommand(transcript);
 			});
 		} else {
-			outputDiv.textContent = 'Speech recognition not supported in this browser.';
+			alert('Speech recognition not supported in this browser.');
 		}
 	}
 
 	processCommand(command) {
 		if (command.includes('piece') || command.includes('peace')) {
 			const move = this.makeCommandObject(command);
-			this.game.makeMove(move);
-
+			if (move.destination !== null && move.pieceNumber !== null) {
+				this.game.makeMove(move);
+			}
 		} else {
 			alert("Invalid Move. Please use this format: 'Piece # to (Cell #)'");
 		}
@@ -699,6 +685,7 @@ class speechHandler {
 	}
 
 	makeCommandObject(command) {
+		console.log(command);
 		let pieceNumber = null;
 		var stringAfterPiece = command.substring(1+'piece'.length);
 		var potentialNumber = stringAfterPiece.substring(0, stringAfterPiece.indexOf(' '));
