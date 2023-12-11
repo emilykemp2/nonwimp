@@ -725,7 +725,6 @@ class speechHandler {
 	}
 
 	processCommand(command) {
-		console.log(command);
 		// Account for all variations of 'piece' that the mic might hear
 		if (command.includes("piece") || command.includes("peace")) {
 			const move = this.makeCommandObject(command);
@@ -785,7 +784,7 @@ class speechHandler {
 		
 		// Account for mic hearing 'be' instead of B
 		command = command.replace(/\bbe\b/i, 'B');
-
+		console.log(command);
 		// Extract the destination based on the presence of an alphanumeric pattern (e.g., A2)
 		const destinationMatch = command.match(/[A-Za-z]\d+/);
 		const destination = destinationMatch ? destinationMatch[0] : null;
