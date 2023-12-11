@@ -782,9 +782,6 @@ class speechHandler {
 			return null;
 		}
 		
-		// Account for mic hearing 'be' instead of B
-		command = command.replace(/\bbe\b/i, 'B');
-		console.log(command);
 		// Extract the destination based on the presence of an alphanumeric pattern (e.g., A2)
 		const destinationMatch = command.match(/[A-Za-z]\d+/);
 		const destination = destinationMatch ? destinationMatch[0] : null;
