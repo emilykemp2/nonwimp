@@ -29,7 +29,6 @@
 		font-family: "Haas Grot Text R Web", "Helvetica Neue", Helvetica, Arial, sans-serif;
 	}
 	.blackcell {
-		/* background-color: rgba(51, 51, 51, 0.815); */
 		background-color: #252525;
 	}
 	.whitecell {
@@ -137,6 +136,25 @@
 		align-items: center;
 		font-family: "Haas Grot Text R Web", "Helvetica Neue", Helvetica, Arial, sans-serif;
 	}
+	#win-container {
+		position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+		font-size: 36px;
+		text-transform: uppercase;
+		padding: 27px;
+		font-family: "Haas Grot Text R Web", "Helvetica Neue", Helvetica, Arial, sans-serif;
+		z-index: 50;
+		align-items: center;
+		flex-direction: column;
+		/* From https://css.glass */
+		background: rgba(255, 255, 255, 0.16);
+		border-radius: 16px;
+		box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+		backdrop-filter: blur(5.5px);
+		-webkit-backdrop-filter: blur(5.5px);
+	}
 </style>
 </head>
 <body>
@@ -149,11 +167,9 @@
 		&nbsp;&nbsp;&nbsp;&nbsp;(Example: Piece 10 to D4)
 	</p>
 	<hr>
-	<!-- <div id="output"></div> -->
 	<div id=player-turn>
 		<div id="player"></div>
 		<button id="startButton">Take Turn</button>
-		<button id="restartButton">Restart</button>
 	</div>
 	<div id="col-labels"></div>
 	<div id="container">
@@ -161,6 +177,11 @@
 		<div id="game-board"></div>
 		<div id="jumped-red-pieces"></div>
 		<div id="jumped-green-pieces"></div>
+	</div>
+	<div id="win-container">
+		<div id="win-message"></div>
+		<button id="restartButton" style="width: 140px;
+		margin-bottom: 0;">Restart</button>
 	</div>
 <script>
 /*
@@ -178,6 +199,7 @@ class Piece {
 		this.element.classList.add("piece");
 		this.element.style.backgroundColor = color;
 
+		// Put the piece number inside the element
 		const numberElement = document.createElement("span");
         numberElement.textContent = number;
         this.element.appendChild(numberElement);
@@ -187,15 +209,6 @@ class Piece {
 		this.isKing = true;
 		this.element.classList.add("king");
 	}
-
-	selectedPiece() {
-		document.querySelectorAll('.piece').forEach(piece => {
-            piece.classList.remove('selected');
-
-        });
-
-		this.element.classList.add("selected");
-      }
 }	
 	
 /*
@@ -208,10 +221,6 @@ class Cell {
 		this.color = "white";
 		this.element = document.createElement("div");
 		this.element.classList.add("cell");
-	}
-	
-	appendChild(childElement) {
-		this.element.appendChild(childElement);
 	}
 }
 
@@ -290,6 +299,7 @@ class Board {
 			this.greenpieces.push(new Piece("Green", i+1));
 		}
 		for (let i = 0; i < this.redpieces.length; i++) {
+			// Get every other cell on the board
 			for (let j = 0; j < 4; j++) {
 				const row = Math.floor(i / 4);
 				const col = (i % 4) * 2 + (row % 2);
@@ -336,17 +346,18 @@ class Board {
 		const validMoves = [];
 		const validJumps = [];
 		const jumpedPieces = [];
-	
+		
+		// Get possible moves based on piece color or if the piece is a king
 		if (piece.color === "Red" || piece.isKing) {
 			this.pushValidMove(validMoves, piece.row + 1, piece.col - 1);
 			this.pushValidMove(validMoves, piece.row + 1, piece.col + 1);
-			
+			// Find valid jumps 
 			this.handleJump(piece.row, piece.col, validJumps, jumpedPieces, piece);
 		}
 		if (piece.color === "Green" || piece.isKing) {
 			this.pushValidMove(validMoves, piece.row - 1, piece.col - 1);
 			this.pushValidMove(validMoves, piece.row - 1, piece.col + 1);
-
+			// Find valid jumps 
 			this.handleJump(piece.row, piece.col, validJumps, jumpedPieces, piece);
 		}
 	
@@ -354,18 +365,20 @@ class Board {
 	}
 
 	handleJump(row, col, validJumps, jumpedPieces, piece, jumpedToCells = []) {
-
 		// Make sure if piece is a king, it can't go back to where it came from
 		if (jumpedToCells.some(cell => cell.row === row && cell.col === col)) {
         	return;
     	}
-
+		// Get the opposite color of current player
 		const enemyColor = piece.color === "Red" ? "Green" : "Red";
 	
+		// Check both jump directions, update arrays accordingly
 		if (piece.color === "Red" || piece.isKing) {
 			if (this.checkJump(row + 2, col - 2, row + 1, col - 1, enemyColor)) {
 				this.pushJump(validJumps, jumpedPieces, row + 2, col - 2, row + 1, col - 1);
 				jumpedToCells.push({ row: row, col: col});
+
+				// Recursively call function to test for double jumps
 				this.handleJump(row + 2, col - 2, validJumps, jumpedPieces, piece, jumpedToCells);
 			}
 			if (this.checkJump(row + 2, col + 2, row + 1, col + 1, enemyColor)) {
@@ -375,6 +388,7 @@ class Board {
 			}
 		} 
 		
+		// Implement same functionality for green pieces
 		if (piece.color === "Green" || piece.isKing) {
 			if (this.checkJump(row - 2, col - 2, row - 1, col - 1, enemyColor)) {
 				this.pushJump(validJumps, jumpedPieces, row - 2, col - 2, row - 1, col - 1);
@@ -424,18 +438,26 @@ class Board {
 		const jumps = valids.validJumps;
 		const enemies = valids.jumpedPieces;
 		
+		// Check if user's move is in list of valid moves, return true if so
 		for (let i = 0; i < moves.length; i++) {
 			if(moves[i].row === row && moves[i].col == col) {
+				// Empty current cell so it can be redrawn in new place
 				this.emptyCell(piece.row, piece.col);
 				return true;
 			}
 		}
+
+		// Check if user's move is in listof valid jumps, return true if so
 		for (let i = 0; i < jumps.length; i++) {	
 			if(jumps[i].row === row && jumps[i].col == col) {
+				// Empty current cell so it can be redrawn in new place
 				this.emptyCell(piece.row, piece.col);
+				// Update the jumped piece so it can be moved to 'jumped-pieces' div
 				this.board[enemies[i].row][enemies[i].col].piece.wasJumped = true;
 				this.board[enemies[i].row][enemies[i].col].removeChild();
 				this.decreaseNumPieces(piece.color);
+
+				// Update further if valid jump is a double jump
 				if (row - piece.row > 2 || piece.row - row > 2 || piece.col - col > 2 || col - piece.col > 2) {
 					this.board[enemies[i-1].row][enemies[i-1].col].piece.wasJumped = true;
 					this.board[enemies[i-1].row][enemies[i-1].col].removeChild();
@@ -443,8 +465,6 @@ class Board {
 				}
 				return true;
 			}
-			
-
 		}
 		return false;
 	}
@@ -498,11 +518,11 @@ class Board {
 				'H': 7
 			};
 
-			return letterMappings[letter.toUpperCase()] || null;
+		return letterMappings[letter.toUpperCase()] || null;
 	}
 	
 	render() {
-    	const boardElement = document.getElementById('game-board');
+    	const boardElement = document.getElementById("game-board");
 		boardElement.innerHTML = '';
 
 		for (let i = 0; i < this.board.length; i++) {
@@ -521,8 +541,8 @@ class Board {
         const rowLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
         for (let i = 0; i < 8; i++) {
-            const labelCell = document.createElement('div');
-            labelCell.classList.add('label-cell-row');
+            const labelCell = document.createElement("div");
+            labelCell.classList.add("label-cell-row");
             labelCell.textContent = rowLabels[i];
             this.rowLabelsElement.appendChild(labelCell);
         }
@@ -532,43 +552,35 @@ class Board {
         this.colLabelsElement.innerHTML = '';
 
         for (let i = 1; i < 9; i++) {
-            const labelCell = document.createElement('div');
-            labelCell.classList.add('label-cell-col');
+            const labelCell = document.createElement("div");
+            labelCell.classList.add("label-cell-col");
             labelCell.textContent = (i).toString();
             this.colLabelsElement.appendChild(labelCell);
         }
     }
 
 	renderJumpedPieces() {
-		const jumpedRedPiecesElement = document.getElementById('jumped-red-pieces');
+		const jumpedRedPiecesElement = document.getElementById("jumped-red-pieces");
 		jumpedRedPiecesElement.innerHTML = '';
-		const jumpedGreenPiecesElement = document.getElementById('jumped-green-pieces');
+		const jumpedGreenPiecesElement = document.getElementById("jumped-green-pieces");
 		jumpedGreenPiecesElement.innerHTML = '';
 
 		for (let i = 1; i < 13; i++) {
 			const red = this.getPiece(i, "Red");
 			const green = this.getPiece(i, "Green");
 			if (red.wasJumped) {
-				// jumpedRedPiecesElement.appendChild(red.element);
-
-				const jumpedCell = document.createElement('div');
-				jumpedCell.classList.add('jumped-cell');
+				const jumpedCell = document.createElement("div");
+				jumpedCell.classList.add("jumped-cell");
 				jumpedCell.appendChild(red.element);
 				jumpedRedPiecesElement.appendChild(jumpedCell);
-				console.log("in red jumped");
 			}
 			if (green.wasJumped) {
-				// jumpedGreenPiecesElement.appendChild(green.element);
-
-				const jumpedCell = document.createElement('div');
-				jumpedCell.classList.add('jumped-cell');
+				const jumpedCell = document.createElement("div");
+				jumpedCell.classList.add("jumped-cell");
 				jumpedCell.appendChild(green.element);
 				jumpedGreenPiecesElement.appendChild(jumpedCell);
-				console.log("in green jumped");
 			}
 		}
-
-		
 	}
 }
 	
@@ -582,23 +594,25 @@ class Game {
 		this.board = new Board;
 		this.currentPlayer = "Red";
 		this.playerDiv = document.getElementById("player");
+		this.winMessage = document.getElementById("win-message");
+		this.winContainer = document.getElementById("win-container");
 		this.speech = new speechHandler(this);
 		this.gameEnded = false;
 		document.getElementById("restartButton").addEventListener ("click", () => this.restart());
-		document.getElementById('restartButton').style.display = 'none';
+		document.getElementById("restartButton").style.display = "none";
 	}
 	
 	start() {
 		this.playerDiv.textContent = this.currentPlayer + " player's turn";
+		this.winContainer.style.display = "none";
 		this.board.render();
 	}
 
 	end() {
-		alert("Game over! " + this.currentPlayer + " wins!");
-		document.getElementById('restartButton').style.display = 'block';
-		document.getElementById('startButton').style.display = 'none';
+		document.getElementById("restartButton").style.display = "block";
+		document.getElementById("startButton").style.display = "none";
 		this.gameEnded = true;
-
+		this.showWinMessage();
 	}
 
 	restart() {
@@ -607,8 +621,14 @@ class Game {
 		this.playerDiv = document.getElementById("player");
 		this.speech = new speechHandler(this);
 		this.isGameOver = false;
-		document.getElementById('startButton').style.display = 'block';
-		document.getElementById('restartButton').style.display = 'none';
+		document.getElementById("startButton").style.display = "block";
+		document.getElementById("restartButton").style.display = "none";
+		this.winContainer.style.display = "none";
+	}
+
+	showWinMessage() {
+		this.winMessage.textContent = "Game over. " + this.currentPlayer + " wins!";
+		this.winContainer.style.display = "flex";
 	}
 	
 	switchPlayer() {
@@ -650,15 +670,15 @@ class Game {
 			return;
 		}
 
-		//Check if move is valid and make move if so
+		// Check if move is valid and make move if so
 		if (this.board.isValidMove(piece, rowNum, colNum)) {
 			this.board.movePiece(piece, rowNum, colNum);
 			this.board.checkKing(piece);
 			this.board.render();
-			this.switchPlayer();
 			if (this.isGameOver()) {
 				this.end();
 			}
+			this.switchPlayer();
 		} else {
 			alert("Move is invalid. Try again.");
 		}
@@ -672,21 +692,20 @@ class Game {
 */
 class speechHandler {
 	constructor(game) {
-		this.outputDiv = document.getElementById('output');
-		this.startButton = document.getElementById('startButton');
+		this.outputDiv = document.getElementById("output");
+		this.startButton = document.getElementById("startButton");
 		this.game = game;
 		this.initialize();
 	}
 
 	initialize() {
 		// Check if the browser supports the Web Speech API
-		if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+		if ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) {
 			// Create a SpeechRecognition object
 			const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
 
 			// Set recognition parameters
-			recognition.lang = 'en-US';
-			// recognition.interimResults = true; // Receive interim results as the user speaks
+			recognition.lang = "en-US";
 
 			// Event handler for when speech is recognized
 			recognition.onresult = (event) => {
@@ -698,20 +717,21 @@ class speechHandler {
 			};
 
 			// Event listener for the start button
-			startButton.addEventListener('click', () => {
+			startButton.addEventListener("click", () => {
 				recognition.start();
-				// const transcript = prompt("move?");
-				// this.processCommand(transcript);
 			});
 		} else {
-			alert('Speech recognition not supported in this browser.');
+			alert("Speech recognition not supported in this browser.");
 		}
 	}
 
 	processCommand(command) {
-		if (command.includes('piece') || command.includes('peace')) {
+		console.log(command);
+		// Account for all variations of 'piece' that the mic might hear
+		if (command.includes("piece") || command.includes("peace")) {
 			const move = this.makeCommandObject(command);
-			if (move.destination !== null && move.pieceNumber !== null) {
+			// If move is the correct format, send piece, destination to game function
+			if (move !== null) {
 				this.game.makeMove(move);
 			}
 		} else {
@@ -744,9 +764,9 @@ class speechHandler {
 	}
 
 	makeCommandObject(command) {
-		// console.log(command);
+		console.log(command);
 		let pieceNumber = null;
-		var stringAfterPiece = command.substring(1+'piece'.length);
+		var stringAfterPiece = command.substring(1+"piece".length);
 		var potentialNumber = stringAfterPiece.substring(0, stringAfterPiece.indexOf(' '));
 		
 		// Check if the potentialNumber is a valid number
@@ -764,6 +784,9 @@ class speechHandler {
 			alert("Invalid piece number. Try again");
 			return null;
 		}
+		
+		// Account for mic hearing 'be' instead of B
+		command = command.replace(/\bbe\b/i, 'B');
 
 		// Extract the destination based on the presence of an alphanumeric pattern (e.g., A2)
 		const destinationMatch = command.match(/[A-Za-z]\d+/);
@@ -789,7 +812,7 @@ class Main {
 	}
 }
 
-//initialize game
+// Initialize game
 const main = new Main();
 
 	
