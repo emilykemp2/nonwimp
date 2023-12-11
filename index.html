@@ -726,7 +726,6 @@ class speechHandler {
 	}
 
 	processCommand(command) {
-		console.log(command);
 		// Account for all variations of 'piece' that the mic might hear
 		if (command.includes("piece") || command.includes("peace")) {
 			const move = this.makeCommandObject(command);
@@ -764,7 +763,6 @@ class speechHandler {
 	}
 
 	makeCommandObject(command) {
-		console.log(command);
 		let pieceNumber = null;
 		var stringAfterPiece = command.substring(1+"piece".length);
 		var potentialNumber = stringAfterPiece.substring(0, stringAfterPiece.indexOf(' '));
