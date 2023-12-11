@@ -725,6 +725,7 @@ class speechHandler {
 	}
 
 	processCommand(command) {
+		console.log(command);
 		// Account for all variations of 'piece' that the mic might hear
 		if (command.includes("piece") || command.includes("peace")) {
 			const move = this.makeCommandObject(command);
